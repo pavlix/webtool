@@ -29,6 +29,11 @@ metasection && /^}}}/ {
 metasection && /^[ \t]*(#|$)/ {
     next
 }
+metasection && /\\$/ {
+    sub(/\\$/, "");
+    printf "%s", $0
+    next
+}
 metasection {
     print
 }

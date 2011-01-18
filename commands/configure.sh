@@ -9,6 +9,11 @@ webtooldir = $webtooldir
 sourcedir = $sourcedir
 builddir = $builddir
 destdir = $destdir
+
+script_dir = /home/pavlix/src/webtool/scripts
+source_dir = $sourcedir
+destination_dir = $destdir
+level = 0
 EOF
 
 cat << EOF > $builddir/parent.mk || exit 1
@@ -16,4 +21,7 @@ parentpath = .
 currentdir = .
 EOF
 
-cp $webtooldir/makefile.mk $builddir/Makefile || exit 1
+> $builddir/languages.parent
+> $builddir/path
+
+cp $webtooldir/makefile-beta.mk $builddir/Makefile || exit 1

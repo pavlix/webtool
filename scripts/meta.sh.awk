@@ -6,7 +6,6 @@ BEGIN {
     name = $1
     value = $0
     sub(/^[^:]*: */, "", value)
-    print value
     # escape value and print a shell variable assignment
     gsub(/\\/, "\\\\", value)
     gsub(/`/, "\\`", value)

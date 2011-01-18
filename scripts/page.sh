@@ -1,4 +1,4 @@
-. "$2"
+. "./$2" || exit 1
 
 cat << EOF
 <!DOCTYPE html>
@@ -25,14 +25,31 @@ cat << EOF
 EOF
 
 echo
-awk -f "$webtooldir/scripts/wiki2html.awk" "$1"
+awk -f "$webtooldir/scripts/wiki2html.awk" "$1" || exit 1
 echo
+
+if [ -z "$PAGE_COPYRIGHT" ]; then
+    PAGE_COPYRIGHT="All rights reserved"
+fi
 
 cat << EOF
 <!--BEGIN FOOTER-->
 </div>
 </div>
+<div id="footer">
+Copyright © 2010 <a href="http://www.pavlix.net/">pavlix</a><br>
+${PAGE_COPYRIGHT}
+</div>
 </body>
 </html>
 <!--END FOOTER-->
+
+<!--
+Generated: `date`
+Modified: `stat "$1" -c %y`
+License: $PAGE_COPYRIGHT
+Path: $3
+Display-Path: $4
+-->
+
 EOF

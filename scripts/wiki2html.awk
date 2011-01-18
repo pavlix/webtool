@@ -15,14 +15,22 @@ END {
 
 function parse_text(text) {
     text = gensub(/\[\[([^\[\]]*)\|([^\[\]]*)\]\]/, "<a href=\"\\1\">\\2</a>", "g", text)
+    text = gensub(/\[\[mailto:([^@/: ]*)@([^@/: ]*)\]\]/, "<a href=\"xmpp:\\1@\\2\">\\1@\\2</a>", "g", text)
+    text = gensub(/\[\[xmpp:([^@/: ]*)@([^@/: ]*)\]\]/, "<a href=\"xmpp:\\1@\\2\">\\1@\\2</a>", "g", text)
+    text = gensub(/\[\[phone:([^@/: ]*)\]\]/, "\\1", "g", text)
+    text = gensub(/\[\[rfc:([0-9]+)\]\]/, "<a href=\"http://tools.ietf.org/html/rfc\\1\">RFC \\1</a>", "g", text)
+    text = gensub(/\[\[iana:([^]]+)\]\]/, "<a href=\"http://www.iana.org/assignments/\\1\">IANA \\1</a>", "g", text)
     text = gensub(/\[\[([^@/: ]*)@([^@/: ]*)\]\]/, "<a href=\"mailto:\\1@\\2\">\\1@\\2</a>", "g", text)
     text = gensub(/\/\/([^\/]+(\/[^\/]+)*)\/\//, "<em>\\1</em>", "g", text)
     text = gensub(/\*\*([^\*]+(\/[^\*]+)*)\*\*/, "<strong>\\1</strong>", "g", text)
+    text = gensub(/##([^#]+(\/[^#]+)*)##/, "<strong>\\1</strong>", "g", text)
     text = gensub(/--([^ \t-]+(([ \t]*|-)[^ \t-]+)*)--/, "<del>\\1</del>", "g", text)
-    gsub(/--/, "\\&#x2013;", text)
+    text = gensub(/{{{(.*?)}}}/, "<code>\\1</code>", "g", text)
+    gsub(/--/, "–", text)
     text = gensub(/\\\\/, "<br>", "g", text)
     text = gensub(/~ /, "\\&#x00a0;", "g", text)
     gsub(/@/, "\\&#x0040;", text)
+    text = gensub(/\[\[([^\[\]]*)\]\]/, "<a href=\"\\1\">\\1</a>", "g", text)
     return text 
 }
 function set_context(newcontext) {
@@ -113,7 +121,7 @@ context=="meta-section" {
 }
 
 # lists
-/^[ \t]*\*/ {
+/^[ \t]*\*+ / {
     line = $0
     level = 0
     while(sub(/^\*/, "", line)) { level++ }

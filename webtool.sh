@@ -17,7 +17,7 @@ if [ ! -d .webtool ]; then
     exit 1;
 fi
 
-webtooldir="/home/pavlix/work/pavlix/webtool"
+webtooldir="/home/pavlix/src/webtool"
 sourcedir="`pwd`"
 
 . .webtool/config
@@ -32,6 +32,15 @@ export syncdir="$syncdir"
 
 if [ ! "$builddir" ]; then
     echo "Build directory not sent (builddir variable)." >&2
+    exit 1
+fi
+
+# no argument
+if [ "$#" == 0 ]; then
+    echo "Usage: webtool <command> ..." >&2
+    echo >&2 
+    echo "Commands:" >&2 
+    ( cd "$webtooldir/commands"; ls | sed -e 's/^/  /' -e 's/\.sh$//g' >&2 )
     exit 1
 fi
 

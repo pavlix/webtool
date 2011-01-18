@@ -28,12 +28,15 @@ $1 ~ /^-/ && $9 ~ /\.wiki$/ {
     build_meta_file = name langext ".meta"
     build_make_file = name langext ".mk"
     scripts = "$(webtooldir)/scripts/*"
+    # restart if changed
+    print "site.mk:", source_wiki_file, scripts
     # makefile
     build_make(build_make_file, build_meta_file)
     # html file
     print "site: " build_html_file
     print build_html_file ":", source_wiki_file, build_meta_file ".sh", scripts
-    print "\t" "sh $(webtooldir)/scripts/page.sh $<", build_meta_file ".sh", "> $@"
+    print "\t" "webtooldir=$(webtooldir) sh $(webtooldir)/scripts/page.sh $<", build_meta_file ".sh",
+        "$(displaypath_" lang "_" name ")", "> $@"
     # meta shell script
     printf "%s.sh: %s $(webtooldir)/scripts/meta.sh.awk\n", build_meta_file, build_meta_file
     printf "\t" "awk -f $(webtooldir)/scripts/meta.sh.awk $< > $@\n"
@@ -47,14 +50,29 @@ $1 ~ /^-/ && $9 ~ /\.wiki$/ {
     }
     next
 }
-/^d/ && $9 ~ /^[A-Za-z0-9]*$/ {
+$1 ~ /^-/ && $9 ~ /^\.htaccess\./ {
+    print "#", ".htaccess:", $9
+    # parse input
+    split($9, a, /\./)
+    len = length(a)
+    print "#", "Number of components:", len
+    lang = a[3]
+    source_htaccess = "$(sourcedir)/$(path)/.htaccess." lang
+    output_dir = "$(destdir)/" lang "/$(path_" lang ")"
+    output_htaccess = output_dir "/.htaccess"
+    print "do-install:", output_htaccess
+    printf "%s: %s\n", output_htaccess, source_htaccess
+    print "\t" "mkdir -p", output_dir
+    print "\t" "cp $< $@" 
+}
+/^d/ && $9 ~ /^[A-Za-z0-9-]*$/ {
     print "#", "Directory:", $9
     # parse input
     name = $9
     # install subdirectories
     print "do-install: do-install-" name
     print "do-install-" name ":"
-    print "\t" "mkdir -p", name
+    #print "\t" "mkdir -p", name
     print "\t" "make -C", name, "install"
     # make subdirectories with virtual dependency
     printf "site: %s/.virtual.makefiles\n", name
@@ -142,7 +160,9 @@ END {
         print "\t" "echo parentpath = $(path) >> $@"
         print "\t" "echo currentdir =", name, " >> $@"
         for (lang in languages) {
+            printf "# lang=%s\n", lang
             printf "\t" "echo parentpath_%s = $(path_%s) >> $@\n", lang, lang
+            printf "\t" "echo parentdisplaypath_%s = \"$(displaypath_%s)\" >> $@\n", lang, lang
         }
     }
 }
