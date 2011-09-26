@@ -7,6 +7,10 @@ if [ "$1" == "init" ]; then
     exit 0
 fi
 
+# Current directory
+
+export currentdir="`pwd`"
+
 # Find configuration
 while [ ! -d .webtool -a "`pwd`" != '/' ]; do
     cd ..
@@ -44,6 +48,6 @@ if [ "$#" == 0 ]; then
     exit 1
 fi
 
-command="$1"
-shift
+command="$1"; shift
+
 sh "$webtooldir/commands/$command.sh" "$@"

@@ -5,3 +5,5 @@ rm -rf "$destdir" || exit 1
 mkdir "$destdir" || exit 1
 cd "$builddir"
 make install
+
+. "$sourcedir/.webtool/hooks/postinst.sh"

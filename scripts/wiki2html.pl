@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 use POSIX qw(strftime);
+use Time::HiRes qw (time);
+
+$time = time();
 
 $filename = shift;
 open PATH, '<', shift;
@@ -11,7 +14,7 @@ open DISPLAY_PATH, '<', shift;
 
 $path_markup = "";
 for ($i = 0; $i < @display_path; $i++) {
-    $path = (join '/', @path[0..$i]) . ($i == @path-1 ? '' : '/');
+    $path = (join '/', @path[1..$i]) . (($i == (@path-1) or $i == 0) ? '' : '/');
     $i && ($path_markup .= " » ");
     $path_markup .= "<a href=\"/$lang/$path\">$display_path[$i]</a>";
 }
@@ -20,6 +23,7 @@ $path = join '/', @path;
 $display_path = join ' » ', @display_path;
 $generated = strftime "%Y-%m-%d %H:%M:%S %z", localtime;
 
+$copyright = "";
 # DOCTYPE & debugging data
 print <<END;
 <DOCTYPE html>
@@ -27,25 +31,28 @@ print <<END;
 
 <!--
 Generated: $generated
-Filename: $filename
-Path: %s
-Display-Path: %s
+Name: $name
+Lang: $lang
+Format: $format
+Path: $path
+Display-Path: $display_path
 Path Markup: $path_markup
 -->
 
 END
 
 # Header
+# TODO title, description, keywords
 print <<END;
 
 <!--BEGIN HEADER-->
 <html>
 <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <link rel="stylesheet" type="text/css" href="/style.css">
-    <title>$PAGE_TITLE</title>
-    <meta name="description" content="$PAGE_DESCRIPTION">
-    <meta name="keywords" content="$PAGE_KEYWORDS">
+    <link rel="stylesheet" type="text/css" href="http://style.pavlix.net/style.css">
+    <title></title>
+    <meta name="description" content="">
+    <meta name="keywords" content="">
 </head>
 <body>
     <div id="container"><!--<div id="header"></div>--><div id="main">
@@ -57,16 +64,27 @@ END
 sub process_markup {
     my %dict = %{$_[0]};
     my $mark = $dict{'mark'};
-    print STDERR "  MARK $mark\n";
+    #print STDERR "  MARK $mark\n";
     my $text = $dict{text};
     if ($mark eq '//') {
         return "<em>" . process_text($text) . "</em>";
     }
+    elsif ($mark eq '**') {
+	return "<strong>" . process_text($text) . "</strong>";
+    }
+    elsif ($mark eq '##') {
+        return "<code>$text</code>";
+    }
     elsif ($mark eq '[[') {
         my $link = $dict{'link'};
-        my $prefix = $dict{'prefix'};
+        my $prefix = $dict{'prefix'} || "";
         if ($text eq '') {
             $text = $link;
+        }
+        if ($prefix eq 'rfc:') {
+            $prefix = "http:";
+            $link = "//tools.ietf.org/html/rfc$link";
+            $text = "RFC $text";
         }
         return "<a href=\"$prefix$link\">$text</a>";
     }
@@ -78,7 +96,9 @@ sub process_markup {
 sub process_text {
     $text = shift;
     #print STDERR "  PROCESS TEXT $text\n";
+    $text =~ s/~ / /g;
     $text =~ s/(
+            (?<mark>\*\*)(?<text>.*?)\*\*|
             (?<mark>\/\/)(?<text>.*?)\/\/|
             (?<mark>\#\#)(?<text>.*?)\#\#|
             (?<mark>\[\[)
@@ -89,13 +109,13 @@ sub process_text {
         /
             process_markup(\%+);
         /gxe;
-    print STDERR "  RETURN TEXT $text\n";
+    #print STDERR "  RETURN TEXT $text\n";
     return $text;
 }
 
 sub process_paragraph {
     $text = shift;
-    print STDERR "  PARA $text\n";
+    #print STDERR "  PARA $text\n";
     $text =~ s/^\s*//;
     $text =~ s/^\s+/ /g;
     $text =~ s/\s*$//;
@@ -103,22 +123,41 @@ sub process_paragraph {
     $text =~ s/(.*)/<p>$1<\/p>/;
     $text =~ s/(.{1,79}\S|\S+)\s+/$1\n/g;
     $text =~ s/\n*$/\n\n/;
-    print STDERR "  RETURN PARA $text\n";
+    #print STDERR "  RETURN PARA $text\n";
     return $text;
 }
 
 open SOURCE, '<', $filename;
+# skip headers
+$backslash = 0;
+while (<SOURCE>) {
+    /[a-zA-Z_-]+\: ./ or $backslash or last;
+    $backslash = 0;
+    if (/[^\\]\\$/) { $backslash = 1 }
+}
 print "<!--BEGIN CONTENT-->\n\n";
 $list_level = 0;
 $comment = 0;
-while (<SOURCE>) {
+$preformatted = 0;
+# parse wikitext
+sub parse_line {
+    $_ = shift;
     #print STDERR "  LINE $_";
-    chomp;
     if ($comment) {
         if (/^\]\]\]$/) {
             $comment = 0;
         }
-        next;
+        return;
+    }
+    if ($preformatted) {
+        if (/^}}}$/) {
+            $preformatted = 0;
+            print "</pre>\n";
+        }
+        else {
+	    print "$_\n";
+        }
+        return;
     }
     # erase escaped newlines
     while (/[^\\](\\\\)*\\$/) {
@@ -133,34 +172,36 @@ while (<SOURCE>) {
         while (s/^=//) { $c++; }
         s/^ *//;
         s/ *=*$//;
-        print STDERR "  H$c $_\n";
+        #print STDERR "  H$c $_\n";
         print "<h$c>$_</h$c>\n\n";
-        next;
+        return;
     }
     # list
     if (!$paragraph && /^\*+ /) {
         $last_list_level = $list_level;
         $list_level = 0;
         while (s/^\*//) { $list_level++ };
-        s/^\s*//;
-        s/\s*$//;
+        s/^\s+//;
+        s/\s+$//;
         if ($last_list_level == $list_level) {
             print "</li>\n";
         }
         while ($last_list_level < $list_level) {
-            $last_list_level && print "<li>";
-            print "\n<ul>\n";
+	    $indent = "    "x $last_list_level;
+            print "<ul>\n";
             $last_list_level++;
         }
         while ($last_list_level > $list_level) {
-            print "\n</li>\n</ul>\n";
             $last_list_level--;
+	    $indent = "    "x $last_list_level;
+            print "</li>\n$indent</ul>";
             if ($last_list_level == $list_level) {
                 print "</li>\n";
             }
         }
-        print "<li>" . process_text $_;
-        next;
+	$indent = "    "x $list_level;
+        print $indent, "<li>", process_text $_;
+        return;
     }
     # end of list
     if ($list_level && /^\s*$/) {
@@ -172,20 +213,32 @@ while (<SOURCE>) {
         $list_level--;
     }
     # end of paragraph
-    if ($paragraph && /^\s*$/) {
-        print process_paragraph $paragraph;
+    if (/^\s*$/) {
+	if ($paragraph) {
+	    print process_paragraph $paragraph;
+	}
         $paragraph = '';
-        next;
+        return;
     }
     if (/^\[\[\[comment$/) {
         $comment = 1;
-        next;
+        return;
+    }
+    if (/^{{{$/) {
+        $preformatted = 1;
+        print "<pre>\n";
+        return;
     }
     # inside paragraph
+    s/ *\\\\$/<br>/;
     $paragraph .= ' ';
     $paragraph .= $_;
 }
-print process_paragraph $paragraph;
+while (<SOURCE>) {
+    chomp;
+    parse_line("$_");
+}
+parse_line("");
 
 close SOURCE;
 print "<!--END CONTENT-->\n\n";
@@ -197,9 +250,11 @@ print <<END;
     </div>
 <div id="footer">
 Copyright © 2010 <a href="http://www.pavlix.net/">pavlix</a><br>
-${PAGE_COPYRIGHT}
+${copyright}
 </div>
 </body>
 </html>
 <!--END FOOTER-->
 END
+
+printf STDERR "wiki2html: %s generated in %.4f seconds.\n", $name, time() - $time;
